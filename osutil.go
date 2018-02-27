@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,11 @@ import (
 var (
 	osutil Settings
 )
+
+// Alert alters the user, waiting for input on the standard settings.
+func Alert(query string) error {
+	return osutil.Alert(query)
+}
 
 // Var reads a variable stored in the standard settings.
 // If not found, it asks for a value and stores it.
@@ -55,6 +61,12 @@ func (s *Settings) init() error {
 		s.ppt = make(map[string]string)
 	})
 	return initErr
+}
+
+// Alert alters the user, waiting for input on the settings.
+func (s *Settings) Alert(query string) error {
+	_, err := s.cmd.Reader.ReadString('\n')
+	return err
 }
 
 // Var reads a variable stored in the settings.
@@ -165,34 +177,36 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 
 	for {
 		f, err := os.Open(rel)
-		if os.IsNotExist(err) {
-			println(`"` + rel + `" not found; drop file here:`)
+		if !os.IsNotExist(err) {
+			return f, err
+		}
+		println(`"` + rel + `" not found; drop file here:`)
 
-			abs, err := s.cmd.ReadString('\n')
-			if err != nil {
-				return nil, err
-			}
+		abs, err := s.cmd.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
 
-			if f, err = os.Open(abs); err != nil {
-				println("Open err")
+		if f, err = os.Open(abs); err != nil {
+			return nil, err
+		}
+		var f2 *os.File
+		for {
+			f2, err = os.Create(rel)
+			if err == nil {
+				break
+			}
+			if err := os.MkdirAll(filepath.Dir(rel), os.ModePerm); err != nil {
 				return nil, err
 			}
-			f2, err := os.Create(rel)
-			if err != nil {
-				println("Create err")
-				return nil, err
-			}
-			if _, err = io.Copy(f2, f); err != nil {
-				f.Close()
-				f2.Close()
-				println("Copy err")
-				return nil, err
-			}
+		}
+		if _, err = io.Copy(f2, f); err != nil {
 			f.Close()
 			f2.Close()
-			continue
+			return nil, err
 		}
-		return f, err
+		f.Close()
+		f2.Close()
 	}
 }
 

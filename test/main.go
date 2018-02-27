@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	os := osutil.Settings{}
+	os := osutil.Settings{Folder: "dump"}
 
 	var name string
 	if err := os.Var("file name", &name); err != nil {
