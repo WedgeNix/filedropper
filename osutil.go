@@ -30,14 +30,14 @@ type Settings struct {
 
 	Folder string
 
-	cmd *bufio.Reader
+	cmd cmdppt
 	ppt map[string]string
 }
 
 func (s *Settings) init() error {
 	var initErr error
 	s.initOnce.Do(func() {
-		s.cmd = bufio.NewReader(os.Stdin)
+		s.cmd.Reader = bufio.NewReader(os.Stdin)
 		s.ppt = make(map[string]string)
 	})
 	return initErr
@@ -53,7 +53,7 @@ func (s *Settings) Prompt(query string) (string, error) {
 	ans, found := s.ppt[query]
 	if !found {
 		print(query + ": ")
-		in, err := s.read()
+		in, err := s.cmd.ReadString('\n')
 		if err != nil {
 			return "", err
 		}
@@ -81,7 +81,7 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 		if os.IsNotExist(err) {
 			println(`"` + rel + `" not found; drop file here:`)
 
-			abs, err := s.read()
+			abs, err := s.cmd.ReadString('\n')
 			if err != nil {
 				return nil, err
 			}
@@ -109,8 +109,12 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 	}
 }
 
-func (s Settings) read() (string, error) {
-	in, err := s.cmd.ReadString('\n')
+type cmdppt struct {
+	*bufio.Reader
+}
+
+func (cmd cmdppt) ReadString(delim byte) (string, error) {
+	in, err := cmd.Reader.ReadString(delim)
 	if err != nil {
 		return "", err
 	}
