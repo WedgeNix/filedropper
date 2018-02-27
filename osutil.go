@@ -38,7 +38,8 @@ func Open(name string) (io.ReadCloser, error) {
 type Settings struct {
 	initOnce sync.Once
 
-	Folder string
+	Folder   string
+	Location *time.Location
 
 	cmd cmdppt
 	ppt map[string]string
@@ -47,6 +48,9 @@ type Settings struct {
 func (s *Settings) init() error {
 	var initErr error
 	s.initOnce.Do(func() {
+		if s.Location == nil {
+			s.Location = time.Local
+		}
 		s.cmd.Reader = bufio.NewReader(os.Stdin)
 		s.ppt = make(map[string]string)
 	})
@@ -106,7 +110,7 @@ Types:
 			"01-02-06",
 			"01-02-2006",
 		} {
-			if t, err := time.Parse(layout, ans); err == nil {
+			if t, err := time.ParseInLocation(layout, ans, s.Location); err == nil {
 				*v = t
 				break Types
 			}

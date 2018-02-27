@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"github.com/WedgeNix/osutil"
 )
@@ -29,14 +30,10 @@ func main() {
 
 	fmt.Println(string(b))
 
-	type Color int
-	var x struct {
-		Name  string
-		Color Color
-	}
-	err = os.Var("Name & Color (JSON)", &x)
+	var t time.Time
+	err = os.Var("Date", &t)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(x)
+	fmt.Println(t)
 }
