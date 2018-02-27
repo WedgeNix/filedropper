@@ -12,10 +12,15 @@ var (
 	osutil Settings
 )
 
-// Prompt reads an answer stored in the standard settings.
-// If not found, it asks for an answer and stores it.
-func Prompt(query string) (string, error) {
-	return osutil.Prompt(query)
+// Var reads a variable stored in the standard settings.
+// If not found, it asks for a value and stores it.
+func Var(query string) (string, error) {
+	return osutil.Var(query)
+}
+
+// Delete deletes the stored variable in the standard settings.
+func Delete(query string) {
+	osutil.Delete(query)
 }
 
 // Open opens a file with the standard settings.
@@ -43,9 +48,9 @@ func (s *Settings) init() error {
 	return initErr
 }
 
-// Prompt reads an answer stored in the settings.
-// If not found, it asks for an answer and stores it.
-func (s *Settings) Prompt(query string) (string, error) {
+// Var reads a variable stored in the settings.
+// If not found, it asks for a value and stores it.
+func (s *Settings) Var(query string) (string, error) {
 	if err := s.init(); err != nil {
 		return "", err
 	}
@@ -62,6 +67,11 @@ func (s *Settings) Prompt(query string) (string, error) {
 	}
 
 	return ans, nil
+}
+
+// Delete deletes the stored variable in the settings.
+func (s *Settings) Delete(query string) {
+	delete(s.ppt, query)
 }
 
 // Open opens a file with the settings.

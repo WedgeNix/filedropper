@@ -9,12 +9,14 @@ import (
 )
 
 func main() {
-	in, err := osutil.Prompt("file name")
+	os := osutil.Settings{}
+
+	in, err := os.Var("file name")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	f, err := osutil.Open(in)
+	f, err := os.Open(in)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,7 +29,7 @@ func main() {
 
 	fmt.Println(string(b))
 
-	in2, err := osutil.Prompt("file name")
+	in2, err := os.Var("file name")
 	if err != nil {
 		log.Fatal(err)
 	}
