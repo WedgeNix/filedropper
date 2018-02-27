@@ -11,12 +11,12 @@ import (
 func main() {
 	os := osutil.Settings{}
 
-	in, err := os.Var("file name")
-	if err != nil {
+	var name string
+	if err := os.Var("file name", &name); err != nil {
 		log.Fatal(err)
 	}
 
-	f, err := os.Open(in)
+	f, err := os.Open(name)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -29,9 +29,14 @@ func main() {
 
 	fmt.Println(string(b))
 
-	in2, err := os.Var("file name")
+	type Color int
+	var x struct {
+		Name  string
+		Color Color
+	}
+	err = os.Var("Name & Color (JSON)", &x)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(in2)
+	fmt.Println(x)
 }
