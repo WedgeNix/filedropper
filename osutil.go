@@ -65,6 +65,11 @@ func (s *Settings) init() error {
 
 // Alert alters the user, waiting for input on the settings.
 func (s *Settings) Alert(query string) error {
+	if err := s.init(); err != nil {
+		return err
+	}
+
+	print(query)
 	_, err := s.cmd.Reader.ReadString('\n')
 	return err
 }
@@ -159,8 +164,13 @@ Types:
 }
 
 // Delete deletes the stored variable in the settings.
-func (s *Settings) Delete(query string) {
+func (s *Settings) Delete(query string) error {
+	if err := s.init(); err != nil {
+		return err
+	}
+
 	delete(s.ppt, query)
+	return nil
 }
 
 // Open opens a file with the settings.
