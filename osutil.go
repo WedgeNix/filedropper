@@ -200,15 +200,9 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 		if f, err = os.Open(abs); err != nil {
 			return nil, err
 		}
-		var f2 *os.File
-		for {
-			f2, err = os.Create(rel)
-			if err == nil {
-				break
-			}
-			if err := os.MkdirAll(filepath.Dir(rel), os.ModePerm); err != nil {
-				return nil, err
-			}
+		f2, err := Create(rel)
+		if err != nil {
+			return nil, err
 		}
 		if _, err = io.Copy(f2, f); err != nil {
 			f.Close()
@@ -218,6 +212,20 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 		f.Close()
 		f2.Close()
 	}
+}
+
+// Create creates the named file and its respective directories.
+func Create(name string) (f *os.File, err error) {
+	for {
+		f, err = os.Create(name)
+		if err == nil {
+			break
+		}
+		if err = os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
+			return
+		}
+	}
+	return
 }
 
 type cmdppt struct {
