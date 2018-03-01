@@ -15,6 +15,9 @@ import (
 )
 
 var (
+	Folder   string
+	Location *time.Location
+
 	osutil Settings
 )
 
@@ -53,8 +56,14 @@ type Settings struct {
 
 func (s *Settings) init() {
 	s.initOnce.Do(func() {
+		if len(s.Folder) == 0 {
+			s.Folder = Folder
+		}
 		if s.Location == nil {
-			s.Location = time.Local
+			if Location == nil {
+				Location = time.Local
+			}
+			s.Location = Location
 		}
 		s.cmd.Reader = bufio.NewReader(os.Stdin)
 		s.ppt = make(map[string]string)
@@ -64,7 +73,6 @@ func (s *Settings) init() {
 // Alert alters the user, waiting for input on the settings.
 func (s *Settings) Alert(query string) {
 	s.init()
-
 	print(query)
 	s.cmd.Reader.ReadString('\n')
 }
