@@ -19,8 +19,8 @@ var (
 )
 
 // Alert alters the user, waiting for input on the standard settings.
-func Alert(query string) error {
-	return osutil.Alert(query)
+func Alert(query string) {
+	osutil.Alert(query)
 }
 
 // Var reads a variable stored in the standard settings.
@@ -36,7 +36,7 @@ func Delete(query string) {
 
 // Open opens a file with the standard settings.
 // If not found, it asks for a file and copies it over.
-func Open(name string) (io.ReadCloser, error) {
+func Open(name string) *os.File {
 	return osutil.Open(name)
 }
 
@@ -51,8 +51,7 @@ type Settings struct {
 	ppt map[string]string
 }
 
-func (s *Settings) init() error {
-	var initErr error
+func (s *Settings) init() {
 	s.initOnce.Do(func() {
 		if s.Location == nil {
 			s.Location = time.Local
@@ -60,34 +59,25 @@ func (s *Settings) init() error {
 		s.cmd.Reader = bufio.NewReader(os.Stdin)
 		s.ppt = make(map[string]string)
 	})
-	return initErr
 }
 
 // Alert alters the user, waiting for input on the settings.
-func (s *Settings) Alert(query string) error {
-	if err := s.init(); err != nil {
-		return err
-	}
+func (s *Settings) Alert(query string) {
+	s.init()
 
 	print(query)
-	_, err := s.cmd.Reader.ReadString('\n')
-	return err
+	s.cmd.Reader.ReadString('\n')
 }
 
 // Var reads a variable stored in the settings.
 // If not found, it asks for a value and stores it.
 func (s *Settings) Var(query string, ptr interface{}) error {
-	if err := s.init(); err != nil {
-		return err
-	}
+	s.init()
 
 	ans, found := s.ppt[query]
 	if !found {
 		print(query + ": ")
-		in, err := s.cmd.ReadString('\n')
-		if err != nil {
-			return err
-		}
+		in := s.cmd.ReadString('\n')
 		ans = in
 	}
 
@@ -164,21 +154,31 @@ Types:
 }
 
 // Delete deletes the stored variable in the settings.
-func (s *Settings) Delete(query string) error {
-	if err := s.init(); err != nil {
-		return err
-	}
-
+func (s *Settings) Delete(query string) {
+	s.init()
 	delete(s.ppt, query)
-	return nil
 }
 
 // Open opens a file with the settings.
 // If not found, it asks for a file and copies it over.
-func (s *Settings) Open(name string) (io.ReadCloser, error) {
-	if err := s.init(); err != nil {
-		return nil, err
+func (s *Settings) Open(name string) *os.File {
+	s.init()
+
+	path := s.Path(name)
+	for {
+		f, err := os.Open(path)
+		if err == nil {
+			return f
+		}
+		s.Alert(err.Error() + "; press enter to retry")
 	}
+}
+
+// Path checks for a file with the settings.
+// If not found, it asks for a file and copies it over.
+// The actual relative path is returned.
+func (s *Settings) Path(name string) string {
+	s.init()
 
 	rel := name
 	if len(s.Folder) > 0 {
@@ -186,28 +186,23 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 	}
 
 	for {
-		f, err := os.Open(rel)
-		if !os.IsNotExist(err) {
-			return f, err
+		if _, err := os.Stat(rel); !os.IsNotExist(err) {
+			return rel
 		}
 		println(`"` + rel + `" not found; drop file here:`)
 
-		abs, err := s.cmd.ReadString('\n')
-		if err != nil {
-			return nil, err
+		var f *os.File
+		for {
+			abs := s.cmd.ReadString('\n')
+			var err error
+			if f, err = os.Open(abs); err == nil {
+				break
+			}
+			println(err.Error() + "; drop file here:")
 		}
-
-		if f, err = os.Open(abs); err != nil {
-			return nil, err
-		}
-		f2, err := Create(rel)
-		if err != nil {
-			return nil, err
-		}
-		if _, err = io.Copy(f2, f); err != nil {
-			f.Close()
-			f2.Close()
-			return nil, err
+		f2 := Create(rel)
+		if _, err := io.Copy(f2, f); err != nil {
+			panic(err)
 		}
 		f.Close()
 		f2.Close()
@@ -215,27 +210,26 @@ func (s *Settings) Open(name string) (io.ReadCloser, error) {
 }
 
 // Create creates the named file and its respective directories.
-func Create(name string) (f *os.File, err error) {
+func Create(name string) *os.File {
 	for {
-		f, err = os.Create(name)
+		f, err := os.Create(name)
 		if err == nil {
-			break
+			return f
 		}
 		if err = os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
-			return
+			panic(err)
 		}
 	}
-	return
 }
 
 type cmdppt struct {
 	*bufio.Reader
 }
 
-func (cmd cmdppt) ReadString(delim byte) (string, error) {
+func (cmd cmdppt) ReadString(delim byte) string {
 	in, err := cmd.Reader.ReadString(delim)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
-	return strings.Replace(in[:len(in)-1], "\r", "", -1), nil
+	return strings.Replace(in[:len(in)-1], "\r", "", -1)
 }
