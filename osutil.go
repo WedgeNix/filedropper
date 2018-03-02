@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	Folder   string
 	Location *time.Location
 
 	osutil Settings
@@ -37,6 +36,13 @@ func Delete(query string) {
 	osutil.Delete(query)
 }
 
+// Check checks for a file with the settings.
+// If not found, it asks for a file and copies it over.
+// The name is returned.
+func Check(name string) string {
+	return osutil.Check(name)
+}
+
 // Open opens a file with the standard settings.
 // If not found, it asks for a file and copies it over.
 func Open(name string) *os.File {
@@ -52,7 +58,6 @@ func Create(name string) *os.File {
 type Settings struct {
 	initOnce sync.Once
 
-	Folder   string
 	Location *time.Location
 
 	cmd cmdppt
@@ -61,9 +66,6 @@ type Settings struct {
 
 func (s *Settings) init() {
 	s.initOnce.Do(func() {
-		if len(s.Folder) == 0 {
-			s.Folder = Folder
-		}
 		if s.Location == nil {
 			if Location == nil {
 				Location = time.Local
@@ -177,7 +179,7 @@ func (s *Settings) Delete(query string) {
 func (s *Settings) Open(name string) *os.File {
 	s.init()
 
-	path := s.Path(name)
+	path := s.Check(name)
 	for {
 		f, err := os.Open(path)
 		if err == nil {
@@ -187,31 +189,26 @@ func (s *Settings) Open(name string) *os.File {
 	}
 }
 
-// Path checks for a file with the settings.
+// Check checks for a file with the settings.
 // If not found, it asks for a file and copies it over.
-// The actual relative path is returned.
-func (s *Settings) Path(name string) string {
+// The name is returned.
+func (s *Settings) Check(name string) string {
 	s.init()
 
-	rel := name
-	if len(s.Folder) > 0 {
-		rel = strings.Join([]string{s.Folder, name}, "/")
-	}
-
 	for {
-		if _, err := os.Stat(rel); !os.IsNotExist(err) {
-			return rel
+		if _, err := os.Stat(name); !os.IsNotExist(err) {
+			return name
 		}
-		println(`"` + rel + `" not found; drop file here:`)
+		println(`"` + name + `" not found; drop file here:`)
 
 		var f *os.File
 		for {
-			abs := s.cmd.ReadString('\n')
-			if len(abs) > 2 && abs[0] == '"' && abs[len(abs)-1] == '"' {
-				abs = abs[1 : len(abs)-1]
+			path := s.cmd.ReadString('\n')
+			if len(path) > 2 && path[0] == '"' && path[len(path)-1] == '"' {
+				path = path[1 : len(path)-1]
 			}
 			var err error
-			if f, err = os.Open(abs); err == nil {
+			if f, err = os.Open(path); err == nil {
 				break
 			}
 			println(err.Error() + "; drop file here:")
@@ -229,17 +226,12 @@ func (s *Settings) Path(name string) string {
 func (s *Settings) Create(name string) *os.File {
 	s.init()
 
-	rel := name
-	if len(s.Folder) > 0 {
-		rel = strings.Join([]string{s.Folder, name}, "/")
-	}
-
 	for {
-		f, err := os.Create(rel)
+		f, err := os.Create(name)
 		if err == nil {
 			return f
 		}
-		if err = os.MkdirAll(filepath.Dir(rel), os.ModePerm); err != nil {
+		if err = os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
 			panic(err)
 		}
 	}
