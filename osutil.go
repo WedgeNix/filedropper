@@ -20,6 +20,12 @@ var (
 	osutil Settings
 )
 
+type Err struct{ error }
+
+func (e Err) Error() string {
+	return "osutil: " + error(e).Error()
+}
+
 // Alert alters the user, waiting for input on the standard settings.
 func Alert(query string) {
 	osutil.Alert(query)
@@ -81,7 +87,10 @@ func (s *Settings) init() {
 func (s *Settings) Alert(query string) {
 	s.init()
 	print(query)
-	s.cmd.Reader.ReadString('\n')
+	_, err := s.cmd.Reader.ReadString('\n')
+	if err != nil {
+		panic(Err{err})
+	}
 }
 
 // Var reads a variable stored in the settings.
@@ -137,30 +146,30 @@ Types:
 				break Types
 			}
 		}
-		return errors.New("bad time format")
+		return Err{errors.New("bad time format")}
 	case *url.URL:
 		u, err := url.Parse(ans)
 		if err != nil {
-			return err
+			return Err{err}
 		}
 		*v = *u
 	case *float64:
 		f, err := strconv.ParseFloat(ans, 64)
 		if err != nil {
-			return err
+			return Err{err}
 		}
 		*v = f
 	case *int:
 		n, err := strconv.Atoi(ans)
 		if err != nil {
-			return err
+			return Err{err}
 		}
 		*v = n
 	case *string:
 		*v = ans
 	default:
 		if err := json.Unmarshal([]byte(ans), ptr); err != nil {
-			return err
+			return Err{err}
 		}
 	}
 
@@ -215,7 +224,7 @@ func (s *Settings) Check(name string) string {
 		}
 		f2 := s.Create(name)
 		if _, err := io.Copy(f2, f); err != nil {
-			panic(err)
+			panic(Err{err})
 		}
 		f.Close()
 		f2.Close()
@@ -232,7 +241,7 @@ func (s *Settings) Create(name string) *os.File {
 			return f
 		}
 		if err = os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
-			panic(err)
+			panic(Err{err})
 		}
 	}
 }
@@ -244,7 +253,7 @@ type cmdppt struct {
 func (cmd cmdppt) ReadString(delim byte) string {
 	in, err := cmd.Reader.ReadString(delim)
 	if err != nil {
-		panic(err)
+		panic(Err{err})
 	}
 	return strings.Replace(in[:len(in)-1], "\r", "", -1)
 }
