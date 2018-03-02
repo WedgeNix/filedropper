@@ -43,6 +43,11 @@ func Open(name string) *os.File {
 	return osutil.Open(name)
 }
 
+// Create creates the named file and its respective directories.
+func Create(name string) *os.File {
+	return osutil.Create(name)
+}
+
 // Settings are the values osutil will use for functioning.
 type Settings struct {
 	initOnce sync.Once
@@ -202,13 +207,16 @@ func (s *Settings) Path(name string) string {
 		var f *os.File
 		for {
 			abs := s.cmd.ReadString('\n')
+			if len(abs) > 2 && abs[0] == '"' && abs[len(abs)-1] == '"' {
+				abs = abs[1 : len(abs)-1]
+			}
 			var err error
 			if f, err = os.Open(abs); err == nil {
 				break
 			}
 			println(err.Error() + "; drop file here:")
 		}
-		f2 := Create(rel)
+		f2 := s.Create(name)
 		if _, err := io.Copy(f2, f); err != nil {
 			panic(err)
 		}
@@ -218,13 +226,20 @@ func (s *Settings) Path(name string) string {
 }
 
 // Create creates the named file and its respective directories.
-func Create(name string) *os.File {
+func (s *Settings) Create(name string) *os.File {
+	s.init()
+
+	rel := name
+	if len(s.Folder) > 0 {
+		rel = strings.Join([]string{s.Folder, name}, "/")
+	}
+
 	for {
-		f, err := os.Create(name)
+		f, err := os.Create(rel)
 		if err == nil {
 			return f
 		}
-		if err = os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
+		if err = os.MkdirAll(filepath.Dir(rel), os.ModePerm); err != nil {
 			panic(err)
 		}
 	}
