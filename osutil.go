@@ -60,6 +60,12 @@ func Create(name string) *os.File {
 	return osutil.Create(name)
 }
 
+// Copy copies a file to a directory with the standard settings.
+// The new path is returned.
+func Copy(dir string) string {
+	return osutil.Copy(dir)
+}
+
 // Settings are the values osutil will use for functioning.
 type Settings struct {
 	initOnce sync.Once
@@ -229,6 +235,41 @@ func (s *Settings) Check(name string) string {
 		f.Close()
 		f2.Close()
 	}
+}
+
+// Copy copies a file to a directory with the settings.
+// The new path is returned.
+func (s *Settings) Copy(dir string) string {
+	s.init()
+
+	println(`drop file here:`)
+
+	var new string
+	var f *os.File
+	for {
+		path := s.cmd.ReadString('\n')
+		if len(path) > 2 && path[0] == '"' && path[len(path)-1] == '"' {
+			path = path[1 : len(path)-1]
+		}
+		var err error
+		if f, err = os.Open(path); err == nil {
+			defer f.Close()
+			dL := len(dir)
+			if dL > 0 && dir[dL-1] != '\\' && dir[dL-1] != '/' {
+				dir += `/`
+			}
+			new = dir + filepath.Base(path)
+			break
+		}
+		println(err.Error() + "; drop file here:")
+	}
+	f2 := s.Create(new)
+	defer f2.Close()
+	if _, err := io.Copy(f2, f); err != nil {
+		panic(Err{err})
+	}
+
+	return new
 }
 
 // Create creates the named file and its respective directories.
