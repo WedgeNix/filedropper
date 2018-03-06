@@ -1,14 +1,11 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/WedgeNix/osutil"
-)
+import "path/filepath"
 
 func main() {
-	names := osutil.CheckDir("/x/mango/")
-	fmt.Println(names)
+	println(filepath.Dir("/x/Mango/"))
+	// names := osutil.CheckDir("/x/mango/")
+	// fmt.Println(names)
 	// var name string
 	// if err := osutil.Var("file name", &name); err != nil {
 	// 	log.Fatal(err)

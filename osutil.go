@@ -207,7 +207,7 @@ func (s *Settings) Open(name string) *os.File {
 
 // CheckDir returns all file names from a folder.
 func (s *Settings) CheckDir(dir string) []string {
-	dir = fixDir(dir)
+	dir = FixDir(dir)
 	for {
 		infos, err := ioutil.ReadDir(dir)
 		if err == nil {
@@ -278,7 +278,7 @@ func (s *Settings) Copy(dir string) string {
 		var err error
 		if f, err = os.Open(path); err == nil {
 			defer f.Close()
-			new = fixDir(dir) + filepath.Base(path)
+			new = FixDir(dir) + filepath.Base(path)
 			break
 		}
 		println(err.Error() + "; drop file here:")
@@ -292,14 +292,14 @@ func (s *Settings) Copy(dir string) string {
 	return new
 }
 
-func fixDir(dir string) string {
+func FixDir(dir string) string {
 	if len(dir) == 0 {
-		return "./"
+		dir = "."
 	}
 	if dir[0] == '\\' || dir[0] == '/' {
 		dir = dir[1:]
 	}
-	if dir[len(dir)-1] != '\\' && dir[len(dir)-1] != '/' {
+	if L := len(dir); L > 0 && dir[L-1] != '\\' && dir[L-1] != '/' {
 		dir += `/`
 	}
 	return dir
