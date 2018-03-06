@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,12 +21,6 @@ var (
 
 	osutil Settings
 )
-
-type Err struct{ error }
-
-func (e Err) Error() string {
-	return "osutil: " + error(e).Error()
-}
 
 // Alert alters the user, waiting for input on the standard settings.
 func Alert(query string) {
@@ -42,11 +38,16 @@ func Delete(query string) {
 	osutil.Delete(query)
 }
 
-// Check checks for a file with the settings.
+// Check checks for a file with the standard settings.
 // If not found, it asks for a file and copies it over.
 // The name is returned.
 func Check(name string) string {
 	return osutil.Check(name)
+}
+
+// CheckDir returns all file names from a folder.
+func CheckDir(dir string) []string {
+	return osutil.CheckDir(dir)
 }
 
 // Open opens a file with the standard settings.
@@ -95,7 +96,7 @@ func (s *Settings) Alert(query string) {
 	print(query)
 	_, err := s.cmd.Reader.ReadString('\n')
 	if err != nil {
-		panic(Err{err})
+		panic("osutil: " + err.Error())
 	}
 }
 
@@ -152,30 +153,30 @@ Types:
 				break Types
 			}
 		}
-		return Err{errors.New("bad time format")}
+		return errors.New("osutil: bad time format")
 	case *url.URL:
 		u, err := url.Parse(ans)
 		if err != nil {
-			return Err{err}
+			return fmt.Errorf("osutil: %v", err)
 		}
 		*v = *u
 	case *float64:
 		f, err := strconv.ParseFloat(ans, 64)
 		if err != nil {
-			return Err{err}
+			return fmt.Errorf("osutil: %v", err)
 		}
 		*v = f
 	case *int:
 		n, err := strconv.Atoi(ans)
 		if err != nil {
-			return Err{err}
+			return fmt.Errorf("osutil: %v", err)
 		}
 		*v = n
 	case *string:
 		*v = ans
 	default:
 		if err := json.Unmarshal([]byte(ans), ptr); err != nil {
-			return Err{err}
+			return fmt.Errorf("osutil: %v", err)
 		}
 	}
 
@@ -201,6 +202,29 @@ func (s *Settings) Open(name string) *os.File {
 			return f
 		}
 		s.Alert(err.Error() + "; press enter to retry")
+	}
+}
+
+// CheckDir returns all file names from a folder.
+func (s *Settings) CheckDir(dir string) []string {
+	dir = fixDir(dir)
+	for {
+		infos, err := ioutil.ReadDir(dir)
+		if err == nil {
+			var files []string
+			for _, info := range infos {
+				if !info.IsDir() {
+					files = append(files, dir+info.Name())
+				}
+			}
+			return files
+		}
+		if os.IsNotExist(err) {
+			s.MkDir(dir)
+			s.Alert("dir '" + dir + "' not found; created, press enter to retry")
+		} else {
+			s.Alert(err.Error() + "; press enter to retry")
+		}
 	}
 }
 
@@ -230,7 +254,7 @@ func (s *Settings) Check(name string) string {
 		}
 		f2 := s.Create(name)
 		if _, err := io.Copy(f2, f); err != nil {
-			panic(Err{err})
+			panic("osutil: " + err.Error())
 		}
 		f.Close()
 		f2.Close()
@@ -254,11 +278,7 @@ func (s *Settings) Copy(dir string) string {
 		var err error
 		if f, err = os.Open(path); err == nil {
 			defer f.Close()
-			dL := len(dir)
-			if dL > 0 && dir[dL-1] != '\\' && dir[dL-1] != '/' {
-				dir += `/`
-			}
-			new = dir + filepath.Base(path)
+			new = fixDir(dir) + filepath.Base(path)
 			break
 		}
 		println(err.Error() + "; drop file here:")
@@ -266,10 +286,23 @@ func (s *Settings) Copy(dir string) string {
 	f2 := s.Create(new)
 	defer f2.Close()
 	if _, err := io.Copy(f2, f); err != nil {
-		panic(Err{err})
+		panic("osutil: " + err.Error())
 	}
 
 	return new
+}
+
+func fixDir(dir string) string {
+	if len(dir) == 0 {
+		return "./"
+	}
+	if dir[0] == '\\' || dir[0] == '/' {
+		dir = dir[1:]
+	}
+	if dir[len(dir)-1] != '\\' && dir[len(dir)-1] != '/' {
+		dir += `/`
+	}
+	return dir
 }
 
 // Create creates the named file and its respective directories.
@@ -278,12 +311,27 @@ func (s *Settings) Create(name string) *os.File {
 
 	for {
 		f, err := os.Create(name)
-		if err == nil {
+		switch {
+		case err == nil:
 			return f
+		case os.IsNotExist(err):
+			s.MkDir(filepath.Dir(name))
+		default:
+			panic("osutil: " + err.Error())
 		}
-		if err = os.MkdirAll(filepath.Dir(name), os.ModePerm); err != nil {
-			panic(Err{err})
+	}
+}
+
+// MkDir makes all nonexistent directories.
+func (s *Settings) MkDir(path string) {
+	s.init()
+
+	for {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err == nil {
+			break
 		}
+		s.Alert(err.Error() + "; press enter to retry")
 	}
 }
 
@@ -294,7 +342,7 @@ type cmdppt struct {
 func (cmd cmdppt) ReadString(delim byte) string {
 	in, err := cmd.Reader.ReadString(delim)
 	if err != nil {
-		panic(Err{err})
+		panic("osutil: " + err.Error())
 	}
 	return strings.Replace(in[:len(in)-1], "\r", "", -1)
 }
