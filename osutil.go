@@ -29,6 +29,11 @@ func Alert(query string) {
 	osutil.Alert(query)
 }
 
+// Fatal alerts the user and calls os.Exit(1) upon input.
+func Fatal(args ...interface{}) {
+	osutil.Fatal(args...)
+}
+
 // Var reads a variable stored in the standard settings.
 // If not found, it asks for a value and stores it.
 func Var(query string, ptr interface{}) error {
@@ -69,6 +74,16 @@ func Copy(dir string) string {
 	return osutil.Copy(dir)
 }
 
+// MkDir makes all nonexistent directories.
+func MkDir(path string) {
+	osutil.MkDir(path)
+}
+
+// Rename renames and old folder or file to a new.
+func Rename(old, new string) {
+	osutil.Rename(old, new)
+}
+
 // Settings are the values osutil will use for functioning.
 type Settings struct {
 	initOnce sync.Once
@@ -100,6 +115,12 @@ func (s *Settings) Alert(query string) {
 	if err != nil {
 		panic("osutil: " + err.Error())
 	}
+}
+
+// Fatal alerts the user and calls os.Exit(1) upon input.
+func (s *Settings) Fatal(args ...interface{}) {
+	s.Alert(fmt.Sprint(args...))
+	os.Exit(1)
 }
 
 // Var reads a variable stored in the settings.
@@ -168,6 +189,12 @@ Types:
 			return fmt.Errorf("osutil: %v", err)
 		}
 		*v = f
+	case *bool:
+		b, err := strconv.ParseBool(ans)
+		if err != nil {
+			return fmt.Errorf("osutil: %v", err)
+		}
+		*v = b
 	case *int:
 		n, err := strconv.Atoi(ans)
 		if err != nil {
@@ -323,6 +350,17 @@ func (s *Settings) MkDir(path string) {
 
 	for {
 		err := os.MkdirAll(clean(path), os.ModePerm)
+		if err == nil {
+			break
+		}
+		s.Alert(err.Error() + "; press enter to retry")
+	}
+}
+
+// Rename renames and old folder or file to a new.
+func (s *Settings) Rename(old, new string) {
+	for {
+		err := os.Rename(old, new)
 		if err == nil {
 			break
 		}
